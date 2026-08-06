@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>桌宠面板</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <div class="tabs">
+    <button class="tab active" data-tab="todo">待办</button>
+    <button class="tab" data-tab="pomo">番茄钟</button>
+    <button class="tab" data-tab="kb">知识库</button>
+    <button class="tab" data-tab="settings">设置</button>
+  </div>
+
+  <!-- 待办 -->
+  <section id="tab-todo" class="tabpanel">
+    <div class="row">
+      <input id="todo-input" placeholder="添加一件待办…">
+      <button id="todo-add">添加</button>
+    </div>
+    <p class="hint">勾选 = 完成；给待办设置时间，到点桌宠会提醒你。</p>
+    <ul id="todo-list"></ul>
+  </section>
+
+  <!-- 番茄钟 -->
+  <section id="tab-pomo" class="tabpanel hidden">
+    <div class="pomo-status" id="pomo-status">未开始</div>
+    <div class="pomo-time" id="pomo-time">25:00</div>
+    <div class="row two">
+      <label>工作 <input id="pomo-work" type="number" min="1" max="120"> 分钟</label>
+      <label>休息 <input id="pomo-break" type="number" min="1" max="60"> 分钟</label>
+    </div>
+    <div class="row">
+      <button id="pomo-start">开始</button>
+      <button id="pomo-pause">暂停</button>
+      <button id="pomo-reset">重置</button>
+    </div>
+    <p class="hint">开始时长短请先在上方填好；阶段结束桌宠会气泡提醒。</p>
+  </section>
+
+  <!-- 设置 -->
+  <section id="tab-settings" class="tabpanel hidden">
+    <label class="field">宠物昵称
+      <input id="set-name" placeholder="小橘">
+    </label>
+    <div class="field">桌宠形象
+      <div class="appearance-pick">
+        <label><input type="radio" name="appearance" id="set-appearance-char" value="character"> 卡通角色</label>
+        <label><input type="radio" name="appearance" id="set-appearance-img" value="image"> 图片</label>
+      </div>
+      <button id="btn-change-image">更换图片…</button>
+      <p class="hint" id="appearance-hint">图片形象会等比缩放居中显示，点击桌宠、拖拽、说话等功能都照常可用。</p>
+    </div>
+    <div class="field">皮肤预设（仅卡通角色）
+      <div id="preset-swatches"></div>
+    </div>
+    <label class="field">大小 <input id="set-scale" type="range" min="0.8" max="1.3" step="0.05"></label>
+    <label class="field">散步速度 <input id="set-wander" type="range" min="0.3" max="2" step="0.1"></label>
+    <label class="field">说话频率（秒） <input id="set-freq" type="range" min="15" max="120" step="5"></label>
+    <label class="field check"><input id="set-speak" type="checkbox"> 语音朗读回复（系统 TTS）</label>
+    <label class="field check"><input id="set-wander-toggle" type="checkbox"> 散步（在桌面自动走动）</label>
+    <label class="field check"><input id="set-chime" type="checkbox"> 整点报时</label>
+    <label class="field check"><input id="set-pin" type="checkbox"> 置顶显示</label>
+
+    <div class="field ai-section">
+      <div class="ai-title">云端 AI 对话</div>
+      <label class="field check"><input id="set-ai-enabled" type="checkbox"> 启用云端对话（失败自动回退本地规则）</label>
+      <label class="field">服务商
+        <select id="set-ai-provider">
+          <option value="zhipu">智谱 GLM（免费）</option>
+          <option value="deepseek">DeepSeek</option>
+          <option value="qwen">通义千问</option>
+          <option value="kimi">Kimi</option>
+          <option value="custom">自定义</option>
+        </select>
+      </label>
+      <label class="field">API Key
+        <input id="set-ai-key" type="password" placeholder="粘贴你的 API Key">
+      </label>
+      <label class="field" id="ai-baseurl-field" style="display:none">Base URL
+        <input id="set-ai-baseurl" placeholder="https://…">
+      </label>
+      <label class="field">模型名（留空用默认）
+        <input id="set-ai-model" placeholder="glm-4.7-flash">
+      </label>
+      <div class="row">
+        <button id="btn-ai-test">测试连接</button>
+        <span id="ai-test-result" class="hint"></span>
+      </div>
+      <p class="hint">Key 只保存在本机；聊天内容会发给服务商。没填 Key 或断网时，桌宠会用本地规则回答。</p>
+    </div>
+
+    <div class="row">
+      <button id="btn-test-notify">试听提示音</button>
+    </div>
+  </section>
+
+  <!-- 知识库 -->
+  <section id="tab-kb" class="tabpanel hidden">
+    <div class="row">
+      <input id="kb-input" placeholder="教它记住一件事，如：我喜欢喝冰美式">
+      <button id="kb-add">记住</button>
+    </div>
+    <p class="hint">记忆会写进 <code>knowledge\memory.json</code>；资料文档放到 <code>knowledge\</code> 文件夹（txt/md），提问时自动检索引用。</p>
+    <ul id="kb-list"></ul>
+  </section>
+
+  <script src="settings-shared.js"></script>
+  <script src="character.js"></script>
+  <script src="panel.js"></script>
+</body>
+</html>

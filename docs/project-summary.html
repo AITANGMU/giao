@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>虚拟桌宠 · 项目总结</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    color: #333;
+    background: #fff;
+    padding: 36px 44px;
+    line-height: 1.65;
+  }
+  h1 {
+    font-size: 26px;
+    color: #2b2730;
+    border-bottom: 3px solid #f08c4a;
+    padding-bottom: 10px;
+    margin-bottom: 8px;
+  }
+  .subtitle { color: #888; font-size: 13px; margin-bottom: 26px; }
+  h2 {
+    font-size: 17px;
+    color: #f08c4a;
+    margin: 22px 0 10px;
+    padding-left: 10px;
+    border-left: 4px solid #f08c4a;
+  }
+  p.intro { font-size: 14px; color: #555; }
+  ul { padding-left: 22px; }
+  li { margin: 5px 0; font-size: 14px; }
+  li b { color: #2b2730; }
+  .badge {
+    display: inline-block;
+    background: #fdf1e7;
+    color: #d9772f;
+    border: 1px solid #f6d9bd;
+    border-radius: 4px;
+    padding: 1px 7px;
+    font-size: 12px;
+    margin-right: 6px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 8px;
+  }
+  td, th {
+    border: 1px solid #eee;
+    padding: 7px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #fdf1e7; color: #b35f22; }
+  .foot { margin-top: 28px; color: #aaa; font-size: 12px; border-top: 1px dashed #ddd; padding-top: 10px; }
+</style>
+</head>
+<body>
+
+<h1>虚拟桌宠 · 项目总结</h1>
+<div class="subtitle">Visual Pet —— 基于 Electron 的 Windows 桌面宠物</div>
+
+<p class="intro">一款会坐在桌面角落、散步、说话、提醒你的小宠物。透明无边框、置顶常驻，集「陪伴 + 实用工具 + AI 对话」于一体。项目完全自包含：便携 Node、免安装、不写注册表，删除文件夹即卸载。</p>
+
+<h2>主要功能</h2>
+<ul>
+  <li><b>桌面形象与互动</b>：Canvas 程序化 Q 版宠物（橘猫 / 黑猫 / 白猫 / 蓝耳兔 / 绿蛙 / <span class="badge">蕾米埃尔</span> 6 款装扮）+ 图片形象模式；支持拖拽、单击说话、自动散步、久置打盹</li>
+  <li><b>实用工具</b>：待办提醒（到点气泡 + 系统通知）、番茄钟、整点报时、置顶显示</li>
+  <li><b>语言与陪伴</b>：多场景台词库（分时段问候 / 鼓励 / 健康提醒 / 卖萌…）、打字对话、语音朗读（TTS 拟人化：音色优选 / 文本预处理 / 分段节奏 / 逐段高亮）</li>
+  <li><b>智能对话（云端大模型）</b>：流式逐字输出、多轮记忆 + 长会话摘要压缩、工具调用（建待办 / 开番茄钟 / 查知识 / 报时）、对话中自动记忆、联网搜索、三层知识（长期记忆 / 个人资料库 / 网络）</li>
+  <li><b>上下文感知</b>：状态注入（待办 / 番茄钟 / 时间）、主动找话题（上下文开场 + 冷场关心）、上下文状态条、情绪驱动表情（气泡变色 + 桌宠情绪徽标）</li>
+  <li><b>隐私与性能</b>：API Key 加密存储（系统 safeStorage）、内存约 260MB、空闲 CPU≈0、云端失败自动回退本地规则</li>
+</ul>
+
+<h2>模块组成</h2>
+<table>
+  <tr><th>层级</th><th>文件 / 模块</th><th>职责</th></tr>
+  <tr><td rowspan="3">主进程</td><td>main.js</td><td>窗口管理、托盘、原生菜单、全部 IPC 通道</td></tr>
+  <tr><td>search.js</td><td>Bing 联网搜索（抓取解析，无需 key）</td></tr>
+  <tr><td>knowledge.js</td><td>长期记忆 / 个人资料库 / 对话日志的持久化与关键词检索</td></tr>
+  <tr><td rowspan="6">渲染层</td><td>pet</td><td>桌宠本体：绘制、动画、散步、拖拽、气泡、提醒</td></tr>
+  <tr><td>panel</td><td>面板：待办 / 番茄钟 / 设置 / 知识库管理 / AI 配置</td></tr>
+  <tr><td>chat</td><td>AI 对话窗口：流式、多轮、工具、情绪、主动找话题</td></tr>
+  <tr><td>lines</td><td>台词库（多套语音：默认 / 蕾米埃尔）与去重选择</td></tr>
+  <tr><td>character</td><td>程序化绘制 6 款角色（含蕾米埃尔专属形象）</td></tr>
+  <tr><td>settings-shared</td><td>共享默认配置、服务商预设（智谱 / DeepSeek / 通义 / Kimi）</td></tr>
+  <tr><td rowspan="2">数据</td><td>localStorage</td><td>共享设置（三窗口实时同步）</td></tr>
+  <tr><td>knowledge\</td><td>memory.json（记忆）、chat-log.json（对话日志）、资料文档（txt/md）</td></tr>
+</table>
+
+<h2>技术亮点</h2>
+<ul>
+  <li><b>便携零侵入</b>：便携 Node 随项目走，不动系统、即删即卸</li>
+  <li><b>质量保障</b>：隔离分区冒烟测试（真实 IPC 模拟）+ 多代理对抗式代码审验，累计修复数十个真实缺陷</li>
+  <li><b>性能优化</b>：主循环按状态降帧率（活动 60 / 空闲 15 / 打盹 6 fps），空闲 CPU 趋近于 0</li>
+  <li><b>全面中文适配</b>：中文语音（晓晓等神经音色）、Bing 中文搜索、国内大模型一键接入</li>
+</ul>
+
+<div class="foot">生成于 2026-08 · 项目位置 D:\visual pet · 启动方式：桌面「桌宠」快捷方式 或 启动桌宠.bat</div>
+
+</body>
+</html>
