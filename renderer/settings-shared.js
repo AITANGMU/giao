@@ -20,7 +20,11 @@ window.PET_DEFAULTS = {
   // 云端 AI 对话配置（Key 加密后保存在本机 localStorage）
   ai: { enabled: false, provider: 'zhipu', baseUrl: '', model: '', apiKey: '' },
   speak: false,                // 语音朗读回复
-  affection: { score: 0, lastDay: '', todayGain: 0 }   // 好感度（只增不减）
+  affection: { score: 0, lastDay: '', todayGain: 0 },   // 好感度（只增不减）
+  // 养成：饱食度 / 清洁度（0-100），updatedAt 用于跨重启的时间衰减
+  care: { satiety: 100, cleanliness: 100, updatedAt: 0 },
+  // 健康提醒：开关 + 间隔分钟 + 各类型上次提醒时间戳
+  health: { sedentary: false, sedentaryMin: 60, water: false, waterMin: 45, eye: false, eyeMin: 20, last: {} }
 };
 
 // 好感度：等级划分与增减工具（pet / panel / chat 共用）

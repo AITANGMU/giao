@@ -317,6 +317,10 @@ function bindMenu() {
       say(pickIdleLine());
     } else if (id === 'chat') {
       petAPI.openChat();
+    } else if (id === 'feed') {
+      feedPet();
+    } else if (id === 'clean') {
+      cleanPet();
     } else if (id === 'chime') {
       S.chime = !!val;
       save();
@@ -333,6 +337,8 @@ function bindMenu() {
     applyVoice();       // 按装扮切换语音
     reloadPetImage();   // 换图后重新加载
     positionBubble();   // 大小/形象变化后重定位气泡
+    decayCare(Date.now());   // 结算养成衰减
+    updateCareBadges();      // 刷新低状态徽标
     petAPI.setPin(S.pin);
     petAPI.syncMenuChecks(S.chime, S.pin);
     updatePomoBadge();
@@ -354,8 +360,129 @@ function updateSleep(dt) {
   }
 }
 
+// ---------- 养成：喂食 / 洗澡 / 低状态 ----------
+let lastCareComplainAt = 0;
+
+function feedPet() {
+  const c = S.care || (S.care = { satiety: 100, cleanliness: 100, updatedAt: Date.now() });
+  if (c.satiety >= 95) {
+    say(Lines.pick('feed_full'));
+  } else {
+    c.satiety = Math.min(100, c.satiety + 20);
+    window.Affection.add(S, 2);
+    say(Lines.pick('feed'));
+    beep(1046, 0.12);
+    setTimeout(() => beep(1568, 0.18, 0.12), 150);   // 上扬双音，开心
+    heartBurst();
+    save();
+  }
+}
+
+function cleanPet() {
+  const c = S.care || (S.care = { satiety: 100, cleanliness: 100, updatedAt: Date.now() });
+  c.cleanliness = Math.min(100, c.cleanliness + 25);
+  window.Affection.add(S, 1);
+  say(Lines.pick('clean'));
+  beep(880, 0.12);
+  setTimeout(() => beep(1318, 0.16, 0.12), 150);
+  save();
+}
+
+// 基于 updatedAt 的时间衰减：饱食度每 30 分钟 -1，清洁度每 60 分钟 -1
+function decayCare(now) {
+  const c = S.care || (S.care = { satiety: 100, cleanliness: 100, updatedAt: 0 });
+  const last = c.updatedAt || now;
+  const mins = (now - last) / 60000;
+  if (mins < 1) return;
+  const sat = Math.max(0, c.satiety - Math.floor(mins / 30));
+  const cle = Math.max(0, c.cleanliness - Math.floor(mins / 60));
+  const changed = sat !== c.satiety || cle !== c.cleanliness;
+  c.satiety = sat;
+  c.cleanliness = cle;
+  c.updatedAt = now;
+  if (changed) save();
+}
+
+// 低状态徽标：饿了 🍖 / 脏了 💦；偶尔撒娇一句
+function updateCareBadges() {
+  const box = document.getElementById('care-badges');
+  if (!box) return;
+  const c = S.care || { satiety: 100, cleanliness: 100 };
+  const needSat = c.satiety < 30;
+  const needCle = c.cleanliness < 30;
+  if (needSat || needCle) {
+    box.innerHTML = '';
+    if (needSat) {
+      const s = document.createElement('span');
+      s.className = 'cbadge';
+      s.textContent = '🍖';
+      box.appendChild(s);
+    }
+    if (needCle) {
+      const s = document.createElement('span');
+      s.className = 'cbadge';
+      s.textContent = '💦';
+      box.appendChild(s);
+    }
+    box.classList.remove('hidden');
+    const now = performance.now();
+    if (now - lastCareComplainAt > 8 * 60000) {   // 约 8 分钟撒娇一次，避免刷屏
+      lastCareComplainAt = now;
+      const line = needSat && Math.random() < 0.7 ? Lines.pick('care_hungry') : Lines.pick('care_dirty');
+      say(line);
+    }
+  } else {
+    box.classList.add('hidden');
+    box.innerHTML = '';
+  }
+}
+
+// 喂食时的爱心爆出
+function heartBurst() {
+  for (let i = 0; i < 3; i++) {
+    const h = document.createElement('div');
+    h.className = 'heart-burst';
+    h.textContent = '❤️';
+    h.style.left = (100 + Math.random() * 24) + 'px';
+    h.style.top = (95 + Math.random() * 26) + 'px';
+    h.style.fontSize = (14 + Math.random() * 10) + 'px';
+    h.style.setProperty('--hx', (Math.random() * 40 - 20) + 'px');
+    document.body.appendChild(h);
+    setTimeout(() => h.remove(), 1000);
+  }
+}
+
+// ---------- 健康提醒（久坐 / 喝水 / 护眼） ----------
+const HEALTH_TYPES = ['sedentary', 'water', 'eye'];
+
+function checkHealthReminders(now) {
+  const h = S.health || (S.health = { sedentary: false, sedentaryMin: 60, water: false, waterMin: 45, eye: false, eyeMin: 20, last: {} });
+  if (!h.sedentary && !h.water && !h.eye) return;
+  const d = new Date();
+  const hm = d.getHours() * 60 + d.getMinutes();
+  if (hm < 8 * 60 || hm > 22 * 60 + 30) return;   // 活动时段 8:00–22:30，夜间不打扰
+  const minOf = { sedentary: h.sedentaryMin, water: h.waterMin, eye: h.eyeMin };
+  const lineKey = { sedentary: 'remind_sit', water: 'remind_water', eye: 'remind_eye' };
+  let changed = false;
+  for (const t of HEALTH_TYPES) {
+    if (!h[t]) continue;
+    const last = h.last[t] || 0;
+    if (now - last >= (minOf[t] || 60) * 60000) {
+      h.last[t] = now;
+      changed = true;
+      say(Lines.pick(lineKey[t]));
+      beep(660, 0.12);   // 柔和的提示音
+    }
+  }
+  if (changed) save();
+}
+
 // ---------- 每 1 秒的例行检查 ----------
 function tick() {
+  const now = Date.now();
+  decayCare(now);
+  updateCareBadges();
+  checkHealthReminders(now);
   checkHourlyChime();
   checkTodoReminders();
   checkTodoPraise();
@@ -589,6 +716,8 @@ async function init() {
   petAPI.setPin(S.pin);
   petAPI.syncMenuChecks(S.chime, S.pin);
   applyVoice();
+  decayCare(Date.now());   // 启动时先按离线时长结算养成衰减
+  updateCareBadges();
 
   bindPointer();
   bindMenu();

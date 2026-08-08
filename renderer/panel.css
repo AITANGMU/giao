@@ -215,6 +215,37 @@ select, input[type="password"] {
 
 .swatch.active .name { color: #f08c4a; font-weight: bold; }
 
+/* 养成状态：进度条 */
+.care-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: #666;
+  white-space: nowrap;
+}
+
+.care-row progress {
+  flex: 1;
+  height: 8px;
+  border: none;
+  border-radius: 4px;
+  background: #f0e2d4;
+  overflow: hidden;
+}
+
+.care-row progress::-webkit-progress-bar {
+  background: #f0e2d4;
+  border-radius: 4px;
+}
+
+.care-row progress::-webkit-progress-value {
+  background: #f08c4a;
+  border-radius: 4px;
+  transition: width .3s ease;
+}
+
 /* 面板滚动条（内容超过窗口高度时出现） */
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }

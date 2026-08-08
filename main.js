@@ -35,6 +35,8 @@ function buildPetMenu() {
     { label: '打开面板', click: () => { if (petWin) petWin.webContents.send('menu-action', 'panel'); } },
     { label: '说句话', click: () => { if (petWin) petWin.webContents.send('menu-action', 'say'); } },
     { label: '对话', click: () => { if (petWin) petWin.webContents.send('menu-action', 'chat'); } },
+    { label: '喂食 🍪', click: () => { if (petWin) petWin.webContents.send('menu-action', 'feed'); } },
+    { label: '洗澡 🫧', click: () => { if (petWin) petWin.webContents.send('menu-action', 'clean'); } },
     { type: 'separator' },
     {
       label: '整点报时', type: 'checkbox', checked: uiState.chime,

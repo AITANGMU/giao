@@ -81,4 +81,38 @@ body.dragging { cursor: grabbing; }
   100% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
 }
 
+/* 养成低状态徽标（饿了 🍖 / 脏了 💦），悬浮在头顶 */
+#care-badges {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 58px;
+  font-size: 16px;
+  display: flex;
+  gap: 4px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+#care-badges .cbadge { animation: care-bob 1.6s ease-in-out infinite; }
+
+@keyframes care-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+/* 喂食时的爱心爆出 */
+.heart-burst {
+  position: absolute;
+  z-index: 6;
+  pointer-events: none;
+  animation: heart-fly 1s ease-out forwards;
+}
+
+@keyframes heart-fly {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.6); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--hx, 0), -46px) scale(1.1); }
+}
+
 .hidden { display: none !important; }

@@ -382,6 +382,74 @@ btnChangeImage.addEventListener('click', async () => {
 });
 syncAppearanceUI();
 
+// ---------- 养成：状态条 + 喂食/洗澡 ----------
+const careSatietyEl = document.getElementById('care-satiety');
+const careCleanEl = document.getElementById('care-clean');
+
+function normCare() {
+  if (!S.care) S.care = { satiety: 100, cleanliness: 100, updatedAt: Date.now() };
+  return S.care;
+}
+
+function refreshCare() {
+  const c = normCare();
+  careSatietyEl.value = c.satiety;
+  careCleanEl.value = c.cleanliness;
+}
+
+document.getElementById('btn-feed').addEventListener('click', () => {
+  const c = normCare();
+  if (c.satiety >= 95) { refreshCare(); return; }   // 已饱，不叠加也不加好感（与桌宠右键菜单一致）
+  c.satiety = Math.min(100, c.satiety + 20);
+  window.Affection.add(S, 2);
+  save();
+  refreshCare();
+});
+
+document.getElementById('btn-clean').addEventListener('click', () => {
+  const c = normCare();
+  c.cleanliness = Math.min(100, c.cleanliness + 25);
+  window.Affection.add(S, 1);
+  save();
+  refreshCare();
+});
+
+// ---------- 健康提醒：开关 + 间隔 ----------
+function normHealth() {
+  if (!S.health) S.health = { sedentary: false, sedentaryMin: 60, water: false, waterMin: 45, eye: false, eyeMin: 20, last: {} };
+  return S.health;
+}
+
+const HEALTH_CFG = [
+  { key: 'sedentary', on: document.getElementById('set-sit'), min: document.getElementById('set-sit-min'), defMin: 60 },
+  { key: 'water', on: document.getElementById('set-water'), min: document.getElementById('set-water-min'), defMin: 45 },
+  { key: 'eye', on: document.getElementById('set-eye'), min: document.getElementById('set-eye-min'), defMin: 20 }
+];
+
+function refreshHealthUI() {
+  const h = normHealth();
+  for (const cfg of HEALTH_CFG) {
+    cfg.on.checked = !!h[cfg.key];
+    cfg.min.value = h[cfg.key + 'Min'] || cfg.defMin;
+  }
+}
+
+for (const cfg of HEALTH_CFG) {
+  cfg.on.addEventListener('change', () => {
+    const h = normHealth();
+    h[cfg.key] = cfg.on.checked;
+    // 启用时从此刻起算，避免一开就立刻提醒一次
+    if (cfg.on.checked && !h.last[cfg.key]) h.last[cfg.key] = Date.now();
+    save();
+  });
+  cfg.min.addEventListener('change', () => {
+    const h = normHealth();
+    h[cfg.key + 'Min'] = Math.max(5, parseInt(cfg.min.value, 10) || cfg.defMin);
+    cfg.min.value = h[cfg.key + 'Min'];
+    save();
+  });
+}
+
 document.getElementById('btn-test-notify').addEventListener('click', () => {
   beep(880, 0.15);
   setTimeout(() => beep(660, 0.2, 0.12), 180);
@@ -436,6 +504,8 @@ renderSwatches();
 renderMemories();
 refreshPomo();
 updateAffectionDisplay();
+refreshCare();
+refreshHealthUI();
 
 // 收到同步广播时刷新（桌宠/聊天窗口改了设置，立即反映到面板）
 petAPI.onSync(() => {
@@ -447,6 +517,8 @@ petAPI.onSync(() => {
   speakInput.checked = S.speak;
   aiEnabled.checked = S.ai.enabled;
   updateAffectionDisplay();
+  refreshCare();
+  refreshHealthUI();
 });
 
 // 每秒重读一次设置：桌宠切换番茄钟阶段时，面板能同步显示
