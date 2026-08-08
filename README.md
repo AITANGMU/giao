@@ -36,7 +36,7 @@
 ## 技术说明
 
 - 便携版 Node 位于 `node-portable\`，仅本项目使用，不影响系统。
-- 默认形象是 `assets\pet-image.jpg`（可直接替换该文件换形象）；也可在面板「更换图片…」里选任意本地图片；卡通角色用 Canvas 程序化绘制。声音用 Web Audio 生成，无音频文件。
+- 默认形象是 `assets\pet-image.png`（透明背景，可直接替换该文件换形象）；也可在面板「更换图片…」里选任意本地图片；卡通角色用 Canvas 程序化绘制。声音用 Web Audio 生成，无音频文件。
 - 数据存在 Chrome localStorage（`pet.settings`），卸载即清空。
 
 ## 重新安装依赖

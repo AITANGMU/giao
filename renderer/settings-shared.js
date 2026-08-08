@@ -5,7 +5,7 @@
 window.PET_DEFAULTS = {
   name: '小橘',
   appearance: 'image',         // 'character' 卡通角色 / 'image' 图片形象
-  imageFile: 'pet-image.jpg',  // 图片形象对应的 assets 文件名
+  imageFile: 'pet-image.png',  // 图片形象对应的 assets 文件名
   imageVersion: 0,             // 换图时 +1，桌宠据此判断是否需要重新加载
   preset: 'cat_orange',
   scale: 1,
@@ -19,7 +19,34 @@ window.PET_DEFAULTS = {
   pomo: { running: false, phase: 'work', endAt: 0, paused: false, remaining: 0 },
   // 云端 AI 对话配置（Key 加密后保存在本机 localStorage）
   ai: { enabled: false, provider: 'zhipu', baseUrl: '', model: '', apiKey: '' },
-  speak: false                 // 语音朗读回复
+  speak: false,                // 语音朗读回复
+  affection: { score: 0, lastDay: '', todayGain: 0 }   // 好感度（只增不减）
+};
+
+// 好感度：等级划分与增减工具（pet / panel / chat 共用）
+window.Affection = {
+  LEVELS: [
+    { min: 0, name: '初识', emoji: '😐' },
+    { min: 20, name: '相识', emoji: '🙂' },
+    { min: 40, name: '熟悉', emoji: '😊' },
+    { min: 60, name: '亲密', emoji: '💛' },
+    { min: 80, name: '挚友', emoji: '❤️' }
+  ],
+  MAX: 100,
+  levelIndex(score) {
+    let i = 0;
+    for (let j = 0; j < this.LEVELS.length; j++) if (score >= this.LEVELS[j].min) i = j;
+    return i;
+  },
+  levelOf(score) {
+    return this.LEVELS[this.levelIndex(score)];
+  },
+  // 增减并钳制到 0..100，返回新分数
+  add(S, n) {
+    if (!S.affection) S.affection = { score: 0, lastDay: '', todayGain: 0 };
+    S.affection.score = Math.max(0, Math.min(100, S.affection.score + n));
+    return S.affection.score;
+  }
 };
 
 // 服务商预设（OpenAI 兼容接口，请求在 Electron 主进程发出，无 CORS 限制）

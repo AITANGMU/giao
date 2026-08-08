@@ -5,7 +5,7 @@ dist/
 
 # 个人数据（绝不上传：记忆 / 聊天记录 / 资料文档）
 knowledge/
-assets/pet-image.jpg
+assets/pet-image.*
 
 # 日志与临时
 *.log

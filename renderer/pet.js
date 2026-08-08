@@ -23,13 +23,20 @@ function loadSettings() {
     return Object.assign(base, saved, {
       pomodoro: Object.assign({}, base.pomodoro, saved.pomodoro || {}),
       pomo: Object.assign({}, base.pomo, saved.pomo || {}),
-      ai: Object.assign({}, base.ai, saved.ai || {})
+      ai: Object.assign({}, base.ai, saved.ai || {}),
+      affection: Object.assign({}, base.affection, saved.affection || {})
     });
   } catch (e) {
     return base;
   }
 }
 let S = loadSettings();
+
+// 形象迁移：Q 版立绘成为新默认形象，取代旧默认 jpg 与旧的卡通角色显示
+if (S.imageFile === 'pet-image.jpg' || S.appearance === 'character') {
+  S.imageFile = 'pet-image.png';
+  S.appearance = 'image';
+}
 
 function save() {
   try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {}
@@ -67,9 +74,9 @@ function reloadPetImage() {
   petImage.version = v;
   petImage.ok = false;
   imgCacheReady = false;
-  petImage.src = '../assets/' + (S.imageFile || 'pet-image.jpg') + '?v=' + v;
+  petImage.src = '../assets/' + (S.imageFile || 'pet-image.png') + '?v=' + v;
 }
-petImage.onload = () => { petImage.ok = true; buildImageCache(); };
+petImage.onload = () => { petImage.ok = true; buildImageCache(); positionBubble(); };
 petImage.onerror = () => {
   petImage.ok = false;
   petAPI.log('图片形象加载失败:', S.imageFile);
@@ -116,12 +123,36 @@ const bubbleText = document.getElementById('bubble-text');
 let sayTimer = null;
 let typeTimer = null;
 
+// 把气泡底部锚定到角色头顶上方（尾巴指向宠物），并夹紧不越出窗口顶部
+function positionBubble(finalH) {
+  const gap = 8, topMargin = 4;
+  const h = finalH || bubble.offsetHeight || 40;
+  let bottom;
+  if (S.appearance === 'image' && imgCacheReady) {
+    // 图片模式：形象居中，尾巴停在图片顶部上方
+    bottom = (H + imgCache.height) / 2 + gap;
+  } else {
+    // 卡通模式：头顶 y = H*0.94 - 170*scale（170=最高预设蓝耳兔耳朵）
+    const headTop = H * 0.94 - 170 * (S.scale || 1);
+    bottom = H - headTop + gap;
+  }
+  const maxBottom = H - topMargin - h;   // 气泡顶部不越过 y=4
+  bottom = Math.min(bottom, Math.max(8, maxBottom));
+  bubble.style.top = 'auto';             // 清掉旧的顶部锚点，避免被拉伸
+  bubble.style.bottom = bottom + 'px';
+}
+
 function say(text, dur) {
   if (!text) return;
   clearTimeout(sayTimer);
   clearInterval(typeTimer);
   bubbleText.textContent = '';
   bubble.classList.remove('hidden');
+  // 先量出完整文本的高度（避免用打字中的半截高度算夹紧），再定位
+  bubbleText.textContent = text;
+  const h = bubble.offsetHeight;
+  bubbleText.textContent = '';
+  positionBubble(h);
   let i = 0;
   typeTimer = setInterval(() => {
     i++;
@@ -164,6 +195,10 @@ function pickGreeting() {
 
 // 空闲闲聊：按时段和概率混合多种风格，不再老重复
 function pickIdleLine() {
+  // 好感度分层：亲密+ 偏亲昵，低等级偏客气
+  const idx = window.Affection.levelIndex(S.affection ? S.affection.score : 0);
+  if (idx >= 3 && Math.random() < 0.35) return Lines.pick('affection_high');
+  if (idx <= 1 && Math.random() < 0.4) return Lines.pick('affection_low');
   const h = new Date().getHours();
   if (h >= 23 || h < 6) {
     return Math.random() < 0.5 ? Lines.pick('sleepy') : Lines.pick('chat');
@@ -178,6 +213,8 @@ function pickIdleLine() {
 }
 
 function pickClickLine() {
+  const idx = window.Affection.levelIndex(S.affection ? S.affection.score : 0);
+  if (idx >= 3 && Math.random() < 0.3) return Lines.pick('affection_high');
   const r = Math.random();
   if (r < 0.25) return pickGreeting();
   if (r < 0.65) return Lines.pick('chat');
@@ -295,6 +332,7 @@ function bindMenu() {
     S = loadSettings();
     applyVoice();       // 按装扮切换语音
     reloadPetImage();   // 换图后重新加载
+    positionBubble();   // 大小/形象变化后重定位气泡
     petAPI.setPin(S.pin);
     petAPI.syncMenuChecks(S.chime, S.pin);
     updatePomoBadge();
@@ -394,6 +432,7 @@ function checkPomodoro() {
   beep(1046, 0.15);
   setTimeout(() => beep(1318, 0.15, 0.12), 200);
   setTimeout(() => beep(1568, 0.25, 0.12), 400);
+  window.Affection.add(S, 2);   // 完成一个番茄钟时段，好感度 +2
   save();
 }
 
@@ -428,6 +467,18 @@ function scheduleBlink(t) {
   }
 }
 
+// ---------- 情绪切换（蕾米埃尔专属，其他角色忽略） ----------
+const emotion = { current: 'normal', nextAt: 0 };
+
+function computeEmotion(t) {
+  if (t < emotion.nextAt) return emotion.current;
+  // 切换到下一个情绪（加权偏向 normal，保持神秘感）
+  const pool = ['normal', 'normal', 'happy', 'curious', 'normal'];
+  emotion.current = pool[Math.floor(Math.random() * pool.length)];
+  emotion.nextAt = t + 4 + Math.random() * 6;  // 4~10秒后切换
+  return emotion.current;
+}
+
 // ---------- 空闲说话（并入 1s tick，不再占用每帧） ----------
 function checkIdleSpeech() {
   if (pet.sleeping || pet.dragging || pet.walking) return;
@@ -456,7 +507,9 @@ function buildPose(t) {
     walking: pet.walking,
     eyeOpen: pet.sleeping ? 0 : computeEyeOpen(t),
     sleeping: pet.sleeping,
-    tailPhase: t * 3
+    tailPhase: t * 3,
+    emotion: pet.sleeping ? 'sleepy' : computeEmotion(t),
+    wingStretch: (Math.sin(t * 0.3) * 0.5 + 0.5)  // 0~1, ~20s 周期
   };
 }
 
@@ -504,8 +557,11 @@ function draw(t) {
 // 图片形象：把缓存好的图片 blit 到窗口居中显示；打盹时叠一个 Zzz
 function drawImageMode(t) {
   if (!imgCacheReady) return;
-  const dx = Math.round((W - imgCache.width) / 2);
-  const dy = Math.round((H - imgCache.height) / 2);
+  // 呼吸浮动 + 轻微左右摆，让图片形象也活起来
+  const bob = Math.sin(t * 2.2) * (pet.walking ? 3.5 : 2.5);
+  const sway = Math.sin(t * 1.1) * 2;
+  const dx = Math.round((W - imgCache.width) / 2 + sway);
+  const dy = Math.round((H - imgCache.height) / 2 + bob);
   ctx.drawImage(imgCache, dx, dy);
 
   if (pet.sleeping) {

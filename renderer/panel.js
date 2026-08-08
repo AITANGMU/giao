@@ -20,7 +20,8 @@ function loadSettings() {
     return Object.assign(base, saved, {
       pomodoro: Object.assign({}, base.pomodoro, saved.pomodoro || {}),
       pomo: Object.assign({}, base.pomo, saved.pomo || {}),
-      ai: Object.assign({}, base.ai, saved.ai || {})
+      ai: Object.assign({}, base.ai, saved.ai || {}),
+      affection: Object.assign({}, base.affection, saved.affection || {})
     });
   } catch (e) { return base; }
 }
@@ -90,7 +91,12 @@ function renderTodos() {
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.checked = !!t.done;
-    cb.addEventListener('change', () => { t.done = cb.checked; save(); renderTodos(); });
+    cb.addEventListener('change', () => {
+      if (cb.checked) window.Affection.add(S, 2);   // 完成一件待办，好感度 +2
+      t.done = cb.checked;
+      save();
+      renderTodos();
+    });
 
     const span = document.createElement('span');
     span.className = 'text';
@@ -311,19 +317,43 @@ btnAiTest.addEventListener('click', async () => {
   else aiTestResult.textContent = '❌ 连接失败（检查 Key / 网络 / 模型名）';
 });
 
-// 皮肤预设色板
+// 皮肤预设：静态迷你画布预览卡片
 const swatchBox = document.getElementById('preset-swatches');
 
 function renderSwatches() {
   swatchBox.innerHTML = '';
+  const dpr = window.devicePixelRatio || 1;
+  // 固定姿态的静态预览；scale 0.36 让最高（蓝耳兔耳朵）和最低（蕾米埃尔双马尾）都能装进 64×80 画布
+  const POSE = { bob: 0, walking: false, eyeOpen: 1, sleeping: false, tailPhase: 0, emotion: 'normal' };
   Character.PRESETS.forEach((p) => {
     const b = document.createElement('button');
     b.className = 'swatch' + (p.id === S.preset ? ' active' : '');
-    b.style.background = p.palette.body;
     b.title = p.name;
+
+    const c = document.createElement('canvas');
+    c.width = 64 * dpr;
+    c.height = 80 * dpr;
+    const g = c.getContext('2d');
+    g.scale(dpr, dpr);
+    Character.draw(g, 64, 80, 0, POSE, { kind: p.kind, palette: p.palette, scale: 0.36 });
+
+    const name = document.createElement('span');
+    name.className = 'name';
+    name.textContent = p.name;
+    b.append(c, name);
+
     b.addEventListener('click', () => { S.preset = p.id; save(); renderSwatches(); });
     swatchBox.appendChild(b);
   });
+}
+
+// 面板头部好感度徽标
+function updateAffectionDisplay() {
+  const el = document.getElementById('affection-display');
+  if (!el) return;
+  const a = S.affection || { score: 0 };
+  const lv = window.Affection.levelOf(a.score);
+  el.textContent = `${lv.emoji} ${a.score} ${lv.name}`;
 }
 
 // 桌宠形象：卡通角色 / 图片
@@ -405,6 +435,7 @@ renderTodos();
 renderSwatches();
 renderMemories();
 refreshPomo();
+updateAffectionDisplay();
 
 // 收到同步广播时刷新（桌宠/聊天窗口改了设置，立即反映到面板）
 petAPI.onSync(() => {
@@ -415,6 +446,7 @@ petAPI.onSync(() => {
   pinInput.checked = S.pin;
   speakInput.checked = S.speak;
   aiEnabled.checked = S.ai.enabled;
+  updateAffectionDisplay();
 });
 
 // 每秒重读一次设置：桌宠切换番茄钟阶段时，面板能同步显示

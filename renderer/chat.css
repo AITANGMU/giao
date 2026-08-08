@@ -100,6 +100,18 @@ html, body {
 .msg.pet .bubble-text[data-emotion="戏谑"] { border-left: 3px solid #7cb77a; }
 .msg.pet .bubble-text[data-emotion="平静"] { border-left: 3px solid transparent; }
 
+/* 高等级（亲密+）专属气泡特效 */
+.msg.pet .bubble-text.high-affection {
+  background: linear-gradient(180deg, #ffffff, #fff4f7);
+  box-shadow: 0 2px 8px rgba(255, 122, 162, 0.28);
+}
+
+.msg.pet .bubble-text.high-affection::after {
+  content: '💛';
+  margin-left: 4px;
+  font-size: 11px;
+}
+
 #chat-input-row {
   display: flex;
   gap: 8px;

@@ -17,13 +17,17 @@ body.dragging { cursor: grabbing; }
   height: 280px;
 }
 
-/* 说话气泡 */
+/* 说话气泡
+   用 bottom 定位：气泡底部锚定在角色头顶上方，尾巴始终指向宠物；
+   bottom 由 pet.js 的 positionBubble() 按角色高度动态覆盖 */
 #bubble {
   position: absolute;
-  top: 4px;
+  bottom: 190px;               /* 默认兜底（scale=1）；运行时被 positionBubble() 覆盖 */
   left: 50%;
   transform: translateX(-50%);
   max-width: 196px;
+  max-height: 160px;           /* 极端长文本硬上限，超出可滚动 */
+  overflow-y: auto;
   background: #ffffff;
   color: #333;
   border-radius: 12px;

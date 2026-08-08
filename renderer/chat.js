@@ -18,7 +18,8 @@ function loadSettings() {
     return Object.assign(base, saved, {
       pomodoro: Object.assign({}, base.pomodoro, saved.pomodoro || {}),
       pomo: Object.assign({}, base.pomo, saved.pomo || {}),
-      ai: Object.assign({}, base.ai, saved.ai || {})
+      ai: Object.assign({}, base.ai, saved.ai || {}),
+      affection: Object.assign({}, base.affection, saved.affection || {})
     });
   } catch (e) { return base; }
 }
@@ -82,6 +83,53 @@ function parseEmotion(text) {
 function applyEmotion(bub, emotion) {
   if (bub) bub.dataset.emotion = emotion || '平静';
   if (MOODS[emotion]) petAPI.setMood(emotion);   // 通知桌宠本体显示情绪徽标
+}
+
+// ---------- 好感度 ----------
+const AFFECTION_KIND = /谢谢|感谢|辛苦|喜欢你|爱你|想你|晚安|早安|抱抱|贴贴|亲亲|好可爱|真棒|最爱|么么|辛苦了/i;
+const AFFECTION_MEAN = /滚|讨厌|闭嘴|烦死|神经病|去死|废物|垃圾|恶心/i;
+const AFF_DAILY_CAP = 15;   // 每日可通过聊天获得的加成上限
+
+function aff() {
+  return S.affection || (S.affection = { score: 0, lastDay: '', todayGain: 0 });
+}
+
+function affIndex() { return window.Affection.levelIndex(aff().score); }
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+}
+
+// 按好感度给分；maxPerDay 为 0 时跳过，undefined 表示不设上限
+function gainAffection(n, maxPerDay) {
+  const a = aff();
+  const today = todayStr();
+  if (a.lastDay !== today) { a.lastDay = today; a.todayGain = 0; }
+  if (maxPerDay != null && maxPerDay > 0) {
+    const room = maxPerDay - a.todayGain;
+    if (room <= 0) return false;   // 今日已满
+    n = Math.min(n, room);
+  }
+  const before = affIndex();
+  window.Affection.add(S, n);
+  a.todayGain += n;
+  saveSettings();   // 持久化 + 广播
+  const after = affIndex();
+  if (after > before) celebrateLevelUp(after);
+  return true;
+}
+
+function celebrateLevelUp(levelIdx) {
+  const lv = window.Affection.LEVELS[levelIdx];
+  const text = isRemiel
+    ? `我们的关系，更近了一步……「${lv.name}」${lv.emoji}。这倒让我有些意外。`
+    : `哇！我们的关系升级到「${lv.name}」啦 ${lv.emoji}！好开心~`;
+  addMsg('pet', text);
+  chatHistory.push({ role: 'assistant', content: text });
+  if (chatHistory.length > 40) chatHistory.splice(0, chatHistory.length - 40);
+  persistHistory();
+  applyEmotion(messagesEl.querySelector('.msg.pet:last-child .bubble-text'), '开心');
 }
 
 // ---------- 长会话摘要压缩（聊久不丢上下文） ----------
@@ -413,7 +461,9 @@ function aiSystemPrompt() {
     }
   }
   // 口语化：去掉"不超过60字"硬限制，像朋友一样自然；并约定情绪标记
-  const base = `现在是 ${hh}:${mm}。${todoPart}。${pomoPart}。像朋友聊天一样自然：长短随意，用口语和语气词，偶尔带一点小表情；别说"好的呢/没问题/作为AI助手"这类AI腔；合适时自然地问回一句"你呢？"。遇到信息不足或复杂的问题时，先自己联网搜索再回答，不要反问用户来确认信息（不要说"你想知道哪方面？"这类话）。回复请以情绪标记开头（任选其一）{开心}{平静}{困}{难过}{惊讶}{戏谑}，紧跟正文，正文不再重复标记。`;
+  const lv = window.Affection.levelOf(S.affection ? S.affection.score : 0);
+  const affPart = `你和用户的好感度是 ${S.affection ? S.affection.score : 0}（等级：${lv.name}${lv.emoji}），请用相应亲密度的语气回应：等级越高越亲昵，低等级保持礼貌客气。`;
+  const base = `现在是 ${hh}:${mm}。${todoPart}。${pomoPart}。${affPart}像朋友聊天一样自然：长短随意，用口语和语气词，偶尔带一点小表情；别说"好的呢/没问题/作为AI助手"这类AI腔；合适时自然地问回一句"你呢？"。遇到信息不足或复杂的问题时，先自己联网搜索再回答，不要反问用户来确认信息（不要说"你想知道哪方面？"这类话）。回复请以情绪标记开头（任选其一）{开心}{平静}{困}{难过}{惊讶}{戏谑}，紧跟正文，正文不再重复标记。`;
   if (window.LINES === window.VOICES.remiel) {
     return `你是${S.name}，一个桌面宠物。你的人设是《绝区零》的蕾米埃尔·丹：初代虚狩、被通缉，神秘狡黠爱戏谑、优雅、信守承诺、与时代脱节，喜欢问答游戏。${base}`;
   }
@@ -656,6 +706,16 @@ async function send(text) {
     }
 
     chatHistory.push({ role: 'user', content: t });
+
+    // 好感度：发消息 +1（友善+3 / 负面-5），每日上限；每日首次互动 +2
+    const a = aff();
+    const isFirstToday = a.lastDay !== todayStr();
+    let gain = 1;
+    if (AFFECTION_KIND.test(t)) gain += 3;
+    if (AFFECTION_MEAN.test(t)) gain = -5;
+    gainAffection(gain, gain > 0 ? AFF_DAILY_CAP : undefined);
+    if (isFirstToday) gainAffection(2, undefined);
+
     const cloudAvailable = !!(S.ai && S.ai.enabled && (S.ai.apiKey || '').trim());
     let reply = null;
     let emotion = '平静';
@@ -737,7 +797,10 @@ async function send(text) {
     hideTyping();
     persistHistory();
     const bub = messagesEl.querySelector('.msg.pet:not(#typing):last-child .bubble-text');
+    // 好感度：亲密+ 时情绪偏开心，气泡带爱心特效
+    if (affIndex() >= 3 && emotion === '平静' && Math.random() < 0.45) emotion = '开心';
     applyEmotion(bub, emotion);   // 气泡样式 + 桌宠情绪徽标
+    if (affIndex() >= 3 && bub) bub.classList.add('high-affection');
     speakText(reply, bub);
     markInteraction();
     maybeSummarize();   // 长会话后台压缩（不阻塞）
@@ -808,7 +871,8 @@ function updateCtxBar() {
         pomo = `🍅 ${pm.phase === 'work' ? '工作中' : '休息中'} ${left}分`;
       }
     }
-    ctxBar.textContent = `🕐 ${hh}:${mm} · ✅ 待办 ${todoN} · ${pomo} · 🧠 记忆 ${ctxMemCount}`;
+    const lv = window.Affection.levelOf(S.affection ? S.affection.score : 0);
+    ctxBar.textContent = `🕐 ${hh}:${mm} · ✅ 待办 ${todoN} · ${pomo} · 🧡 ${S.affection ? S.affection.score : 0} ${lv.name} · 🧠 记忆 ${ctxMemCount}`;
   } catch (e) {}
 }
 
